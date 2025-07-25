@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "6tveelXoF+nD2fdkMBoHfgQh267ivKExjUDeWoJyG5Q=",
+  "Source": "car-listing-service",
+  "BasePath": "_content/car-listing-service",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
