@@ -19,6 +19,117 @@ Service for managing car listings (create, read, update, delete) backed by Mongo
 - Planned events: `car-listed`, `car-sold`
 - Communicates with order-service and notification-service (future work)
 
+## System Architecture & Flow
+
+### Sequence Diagram Overview
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CarController
+    participant MongoDB
+    participant RabbitMQ
+    participant OrderService
+    participant NotificationService
+
+    Note over Client,NotificationService: Car Listing Flow
+
+    %% Create Car Listing
+    Client->>CarController: POST /Car (Create Listing)
+    CarController->>MongoDB: Insert Car Document
+    MongoDB-->>CarController: Car Created (ID returned)
+    CarController->>RabbitMQ: Publish 'car-listed' Event
+    RabbitMQ->>OrderService: Consume 'car-listed' Event
+    RabbitMQ->>NotificationService: Consume 'car-listed' Event
+    CarController-->>Client: 201 Created + Car Data
+
+    %% Retrieve Car Listings
+    Client->>CarController: GET /Car (Get All)
+    CarController->>MongoDB: Query All Cars
+    MongoDB-->>CarController: List of Cars
+    CarController-->>Client: 200 OK + Cars Array
+
+    Client->>CarController: GET /Car/{id} (Get By ID)
+    CarController->>MongoDB: Query Car by ID
+    MongoDB-->>CarController: Car Document
+    CarController-->>Client: 200 OK + Car Data
+
+    %% Update Car Listing
+    Client->>CarController: PUT /Car/{id} (Update)
+    CarController->>MongoDB: Replace Car Document
+    MongoDB-->>CarController: Update Result
+    CarController-->>Client: 204 No Content
+
+    %% Delete Car Listing
+    Client->>CarController: DELETE /Car/{id} (Delete)
+    CarController->>MongoDB: Delete Car Document
+    MongoDB-->>CarController: Delete Result
+    CarController->>RabbitMQ: Publish 'car-sold' Event
+    RabbitMQ->>NotificationService: Consume 'car-sold' Event
+    CarController-->>Client: 204 No Content
+
+    Note over Client,NotificationService: Event-Driven Communication
+    Note over RabbitMQ,NotificationService: Asynchronous Event Processing
+```
+
+### Component Interaction Flow
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[Web Client]
+        B[Mobile App]
+        C[Third-party API]
+    end
+
+    subgraph "API Gateway"
+        D[Car Controller]
+    end
+
+    subgraph "Data Layer"
+        E[MongoDB]
+        F[PostgreSQL - Optional]
+    end
+
+    subgraph "Message Queue"
+        G[RabbitMQ]
+    end
+
+    subgraph "External Services"
+        H[Order Service]
+        I[Notification Service]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    D --> F
+    D --> G
+    G --> H
+    G --> I
+
+    style D fill:#e1f5fe
+    style E fill:#f3e5f5
+    style G fill:#fff3e0
+    style H fill:#e8f5e8
+    style I fill:#e8f5e8
+```
+
+### Data Flow Description
+
+1. **Client Request**: External clients (web, mobile, APIs) send HTTP requests to the Car Controller
+2. **Controller Processing**: The Car Controller validates requests and processes business logic
+3. **Data Persistence**: Car data is stored in MongoDB (primary) or PostgreSQL (optional)
+4. **Event Publishing**: After successful operations, events are published to RabbitMQ
+5. **Service Communication**: Order Service and Notification Service consume events asynchronously
+6. **Response**: Controller returns appropriate HTTP responses to clients
+
+### Event Types
+
+- **`car-listed`**: Published when a new car listing is created
+- **`car-sold`**: Published when a car listing is deleted (assumed sold)
+
 ## Requirements
 - .NET 7 SDK
 - MongoDB running locally or in Docker
